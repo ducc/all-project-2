@@ -1,0 +1,8 @@
+[package]
+name = "subscriber"
+version = "0.1.0"
+authors = ["Joe Burnard <burnardj@uni.coventry.ac.uk>"]
+
+[dependencies]
+rumqtt = "0.10.1"
+env_logger = "0.3"
