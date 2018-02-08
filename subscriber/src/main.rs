@@ -2,6 +2,7 @@ extern crate rumqtt;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
+extern crate kankyo;
 
 mod error;
 
@@ -22,6 +23,7 @@ fn main() {
 
 fn try_main() -> Result<(), Error> {
     env_logger::init();
+    kankyo::load()?;
 
     info!("Hello, world!");
 

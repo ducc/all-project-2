@@ -7,3 +7,4 @@ authors = ["Joe Burnard <burnardj@uni.coventry.ac.uk>"]
 rumqtt = "0.10.1"
 log = "0.4.1"
 env_logger = "0.5.3"
+kankyo = "~0.2"
