@@ -10,8 +10,7 @@ use rumqtt::{
 use std::io::Error as IOError;
 use std::fmt;
 
-const CLIENT_ID: &'static str = "joeburnardsubscriber";
-const TOPIC: &'static str = "joeburnard/livestream";
+const TOPIC: &'static str = "testing12345/c";
 
 fn main() {
     try_main().expect("oh no");
@@ -27,7 +26,6 @@ fn try_main() -> Result<(), Error> {
     let opts = MqttOptions::new()
         .set_keep_alive(5)
         .set_reconnect(3)
-        .set_client_id(CLIENT_ID)
         .set_broker("iot.eclipse.org:1883");
 
     let callback = MqttCallback::new().on_message(move |message| {
@@ -35,7 +33,7 @@ fn try_main() -> Result<(), Error> {
     });
 
     let mut request = MqttClient::start(opts, Some(callback))?;
-    request.subscribe(vec![(TOPIC, QoS::Level1)])?;
+    request.subscribe(vec![(TOPIC, QoS::Level0)])?;
 
     Ok(())
 }
