@@ -3,6 +3,7 @@ extern crate rumqtt;
 extern crate log;
 extern crate env_logger;
 extern crate kankyo;
+extern crate byteorder;
 
 mod error;
 
@@ -14,8 +15,8 @@ use rumqtt::{
     QoS,
     Message
 };
-
-const TOPIC: &'static str = "testing12345/c/noise/decibels/#";
+use byteorder::{ReadBytesExt, BigEndian};
+use std::env;
 
 fn main() {
     try_main().expect("oh no");
@@ -25,17 +26,15 @@ fn try_main() -> Result<(), Error> {
     env_logger::init();
     kankyo::load()?;
 
-    info!("Hello, world!");
-
     let opts = MqttOptions::new()
         .set_keep_alive(5)
         .set_reconnect(3)
-        .set_broker("iot.eclipse.org:1883");
+        .set_broker(&env::var("MQTT_BROKER")?);
 
     let callback = MqttCallback::new().on_message(on_message);
 
     let mut request = MqttClient::start(opts, Some(callback))?;
-    request.subscribe(vec![(TOPIC, QoS::Level0)])?;
+    request.subscribe(vec![(&env::var("MQTT_TOPIC")?, QoS::Level0)])?;
 
     loop {
         // inf loop to keep thread alive
@@ -43,5 +42,6 @@ fn try_main() -> Result<(), Error> {
 }
 
 fn on_message(msg: Message) {
-    info!("message: {:?}", msg);
+    let bytes = msg.payload.as_slice().read_f32::<BigEndian>().expect("couldnt read f64");
+    info!("message: {:?}", bytes);
 }
