@@ -1,9 +1,11 @@
-extern crate rumqtt;
 #[macro_use]
 extern crate log;
+
+extern crate rumqtt;
 extern crate env_logger;
 extern crate kankyo;
 extern crate byteorder;
+extern crate rusqlite;
 
 mod error;
 
@@ -17,6 +19,7 @@ use rumqtt::{
 };
 use byteorder::{ReadBytesExt, BigEndian};
 use std::env;
+use rusqlite::Connection;
 
 fn main() {
     try_main().expect("oh no");
@@ -25,6 +28,11 @@ fn main() {
 fn try_main() -> Result<(), Error> {
     env_logger::init();
     kankyo::load()?;
+
+    // open sqlite db
+    let conn = Connection::open("database.sqlite")?;
+
+    // start mqtt client
 
     let opts = MqttOptions::new()
         .set_keep_alive(5)
@@ -44,4 +52,10 @@ fn try_main() -> Result<(), Error> {
 fn on_message(msg: Message) {
     let bytes = msg.payload.as_slice().read_f32::<BigEndian>().expect("couldnt read f64");
     info!("message: {:?}", bytes);
+}
+
+#[derive(Debug)]
+struct Noise {
+    unix_time: i32,
+    noise_level: f32
 }
