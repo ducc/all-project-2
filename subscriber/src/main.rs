@@ -50,12 +50,7 @@ fn try_main() -> Result<(), Error> {
                 let noise_level: Vec<u8> = row.get(1);
                 (unix_time, noise_level)
             })?
-            .filter_map(|res| {
-                match res {
-                    Ok(data) => Some(data),
-                    Err(_) => None,
-                }
-            })
+            .filter_map(Result::ok)
             .for_each(|(unix_time, noise_level)| {
                 let noise_level = parse_noise_level(noise_level.as_slice())
                     .expect("couldnt read db noise_level");
