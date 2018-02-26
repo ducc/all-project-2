@@ -113,10 +113,8 @@ fn parse_noise_level(mut payload: &[u8]) -> Result<f32, IoError> {
 }
 
 fn on_message(msg: Message) -> Result<(), Error> {
-    let noise_level = parse_noise_level(msg.payload.as_slice())
-        .expect("couldnt read mqtt noise_level");
-
-    info!("noise level: {:?}", noise_level);
+    debug!("noise level: {:?}", parse_noise_level(msg.payload.as_slice())
+            .expect("couldnt read mqtt noise_level"));
 
     let conn = open_connection()?;
 
@@ -124,7 +122,6 @@ fn on_message(msg: Message) -> Result<(), Error> {
                   VALUES (?1, ?2)",
                 &[&time::get_time(), &*msg.payload])?;
 
-    debug!("inserted into noise_levels");
     Ok(())
 }
 
@@ -152,10 +149,12 @@ impl Service for Server {
     }
 }
 
-// todo routes
+// todo 
+//
 // GET /noise_levels?start=0&end=0
 // body format: [[unix_time, noise_level],...]
 // data ascending in unix time
 // no end value = now
 //
 // potentially open websocket connection for streaming live data
+// or just poll /noise_levels endpoint
