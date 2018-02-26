@@ -151,3 +151,11 @@ impl Service for Server {
         })       
     }
 }
+
+// todo routes
+// GET /noise_levels?start=0&end=0
+// body format: [[unix_time, noise_level],...]
+// data ascending in unix time
+// no end value = now
+//
+// potentially open websocket connection for streaming live data
