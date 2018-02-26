@@ -3,12 +3,14 @@ use rumqtt::Error as RumqttError;
 use std::io::Error as IOError;
 use std::env::VarError;
 use rusqlite::Error as RusqliteError;
+use hyper::Error as HyperError;
 
 pub enum Error {
     Io(IOError),
     Rumqtt(RumqttError),
     Var(VarError),
-    Rusqlite(RusqliteError)
+    Rusqlite(RusqliteError),
+    Hyper(HyperError)
 }
 
 impl fmt::Debug for Error {
@@ -21,6 +23,7 @@ impl fmt::Debug for Error {
             Rumqtt(ref err) => err.description(),
             Var(ref err) => err.description(),
             Rusqlite(ref err) => err.description(),
+            Hyper(ref err) => err.description()
         })  
     }   
 }
@@ -46,5 +49,11 @@ impl From<VarError> for Error {
 impl From<RusqliteError> for Error {
     fn from(err: RusqliteError) -> Self {
         Error::Rusqlite(err)
+    }
+}
+
+impl From<HyperError> for Error {
+    fn from(err: HyperError) -> Self {
+        Error::Hyper(err)
     }
 }

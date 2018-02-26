@@ -7,6 +7,9 @@ extern crate kankyo;
 extern crate byteorder;
 extern crate rusqlite;
 extern crate time;
+extern crate futures;
+extern crate tokio_core;
+extern crate hyper;
 
 mod error;
 
@@ -23,6 +26,12 @@ use std::env;
 use rusqlite::Connection;
 use time::Timespec;
 use std::io::Error as IoError;
+use tokio_core::reactor::Core;
+use hyper::server::{Http, Service, Request, Response};
+use hyper::{Get, StatusCode, Error as HyperError};
+use hyper::header::ContentLength;
+use futures::{Future, Stream};
+use futures::future::{self, FutureResult};
 
 fn main() {
     try_main().expect("oh no");
@@ -59,7 +68,6 @@ fn try_main() -> Result<(), Error> {
             });
     }
 
-
     // start mqtt client
 
     let opts = MqttOptions::new()
@@ -74,9 +82,26 @@ fn try_main() -> Result<(), Error> {
     let mut request = MqttClient::start(opts, Some(callback))?;
     request.subscribe(vec![(&env::var("MQTT_TOPIC")?, QoS::Level0)])?;
 
-    loop {
-        // inf loop to keep thread alive
-    }
+    // start http server
+    let http_addr = env::var("HTTP_ADDRESS")?.parse().unwrap();
+    
+    let mut core = Core::new()?;
+    let handle = core.handle();
+
+    let server = Http::new().serve_addr_handle(&http_addr, &handle, || Ok(Server {}))?;
+    info!("listening on http://{}", server.incoming_ref().local_addr());
+
+    let handle1 = handle.clone();
+    handle.spawn(server.for_each(move |conn| {
+        handle1
+            .spawn(conn.map(|_| ())
+            .map_err(|err| error!("server error: {:?}", err)));
+        Ok(())
+    }).map_err(|_| ()));
+
+    let _ = core.run(future::empty::<(), ()>());
+
+    Ok(())
 }
 
 fn open_connection() -> Result<Connection, Error> {
@@ -101,4 +126,28 @@ fn on_message(msg: Message) -> Result<(), Error> {
 
     debug!("inserted into noise_levels");
     Ok(())
+}
+
+struct Server;
+
+impl Service for Server {
+    type Request = Request;
+    type Response = Response;
+    type Error = HyperError;
+    type Future = FutureResult<Response, Self::Error>;
+
+    fn call(&self, req: Request) -> Self::Future {
+        future::ok(match (req.method(), req.path()) {
+            (&Get, "/") => {
+                let response = "Hello World!";
+                Response::new()
+                    .with_header(ContentLength(response.len() as u64))
+                    .with_body(response)
+            },
+            _ => {
+                Response::new()
+                    .with_status(StatusCode::NotFound)
+            }
+        })       
+    }
 }
