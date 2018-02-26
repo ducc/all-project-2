@@ -9,4 +9,8 @@ log = "0.4.1"
 env_logger = "0.5.3"
 kankyo = "~0.2"
 byteorder = "1"
-rusqlite = "0.13.0"
+time = "0.1.39"
+
+[dependencies.rusqlite]
+version = "0.13.0"
+features = ["bundled"]

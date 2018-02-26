@@ -1,3 +1,4 @@
 subscriber/target
 subscriber/.env
+subscriber/*.sqlite
 frontend/build
