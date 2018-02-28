@@ -4,13 +4,17 @@ use std::io::Error as IOError;
 use std::env::VarError;
 use rusqlite::Error as RusqliteError;
 use hyper::Error as HyperError;
+use std::option::NoneError;
+use std::num::ParseIntError;
 
 pub enum Error {
     Io(IOError),
     Rumqtt(RumqttError),
     Var(VarError),
     Rusqlite(RusqliteError),
-    Hyper(HyperError)
+    Hyper(HyperError),
+    None(NoneError),
+    ParseInt(ParseIntError),
 }
 
 impl fmt::Debug for Error {
@@ -23,7 +27,9 @@ impl fmt::Debug for Error {
             Rumqtt(ref err) => err.description(),
             Var(ref err) => err.description(),
             Rusqlite(ref err) => err.description(),
-            Hyper(ref err) => err.description()
+            Hyper(ref err) => err.description(),
+            None(_) => "std::option::Option value not present",
+            ParseInt(ref err) => err.description(),
         })  
     }   
 }
@@ -55,5 +61,17 @@ impl From<RusqliteError> for Error {
 impl From<HyperError> for Error {
     fn from(err: HyperError) -> Self {
         Error::Hyper(err)
+    }
+}
+
+impl From<NoneError> for Error {
+    fn from(err: NoneError) -> Self {
+        Error::None(err)
+    }
+}
+
+impl From<ParseIntError> for Error {
+    fn from(err: ParseIntError) -> Self {
+        Error::ParseInt(err)
     }
 }

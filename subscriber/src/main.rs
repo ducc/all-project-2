@@ -1,3 +1,5 @@
+#![feature(try_trait)]
+
 #[macro_use]
 extern crate log;
 
@@ -10,6 +12,7 @@ extern crate time;
 extern crate futures;
 extern crate tokio_core;
 extern crate hyper;
+extern crate url;
 
 mod error;
 
@@ -32,6 +35,7 @@ use hyper::{Get, StatusCode, Error as HyperError};
 use hyper::header::ContentLength;
 use futures::{Future, Stream};
 use futures::future::{self, FutureResult};
+use url::form_urlencoded;
 
 fn main() {
     try_main().expect("oh no");
@@ -84,7 +88,7 @@ fn try_main() -> Result<(), Error> {
 
     // start http server
     let http_addr = env::var("HTTP_ADDRESS")?.parse().unwrap();
-    
+
     let mut core = Core::new()?;
     let handle = core.handle();
 
@@ -135,8 +139,25 @@ impl Service for Server {
 
     fn call(&self, req: Request) -> Self::Future {
         future::ok(match (req.method(), req.path()) {
-            (&Get, "/") => {
-                let response = "Hello World!";
+            (&Get, "/noise_levels") => {
+                let query = match req.uri().query() {
+                    Some(query) => query,
+                    None => {
+                        return future::ok(Response::new().with_status(StatusCode::BadRequest));
+                    }
+                };
+
+                let (query_from, query_to) = match parse_query(query) {
+                    Ok(pairs) => pairs,
+                    Err(e) => {
+                        error!("error parsing query {:?}", e);
+                        return future::ok(Response::new().with_status(StatusCode::BadRequest));
+                    }
+                };
+
+                let response = format!("Hello world!\nfrom: {}\nto: {}", 
+                                        query_from, query_to);       
+
                 Response::new()
                     .with_header(ContentLength(response.len() as u64))
                     .with_body(response)
@@ -149,12 +170,29 @@ impl Service for Server {
     }
 }
 
+fn parse_query(query: &str) -> Result<(i64, i64), Error> {
+    let pairs = form_urlencoded::parse(query.as_bytes());
+
+    let mut from = None;
+    let mut to = None;
+
+    for (key, value) in pairs {
+        match &*key {
+            "from" => from = Some(value.parse::<i64>()?),
+            "to" => to = Some(value.parse::<i64>()?),
+            _ => {},
+        }
+    }
+    
+    Ok((from?, to.or(Some(0))?))
+}
+
 // todo 
 //
-// GET /noise_levels?start=0&end=0
+// GET /noise_levels?from=0&to=0
 // body format: [[unix_time, noise_level],...]
 // data ascending in unix time
-// no end value = now
+// no to value = now
 //
 // potentially open websocket connection for streaming live data
 // or just poll /noise_levels endpoint
