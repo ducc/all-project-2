@@ -2,6 +2,7 @@
 
 #[macro_use]
 extern crate log;
+extern crate serde_json;
 
 extern crate rumqtt;
 extern crate env_logger;
@@ -33,7 +34,7 @@ use std::io::Error as IoError;
 use tokio_core::reactor::Core;
 use hyper::server::{Http, Service, Request, Response};
 use hyper::{Get, StatusCode, Error as HyperError};
-use hyper::header::ContentLength;
+use hyper::header::{ContentLength, ContentType};
 use futures::{Future, Stream};
 use futures::future::{self, FutureResult};
 use url::form_urlencoded;
@@ -159,10 +160,19 @@ impl Service for Server {
                     }
                 };
 
-                let response = format!("Hello world!\nfrom: {:?}\nto: {:?}", 
-                                        query_from, query_to);       
+                let noise_levels = match get_noise_levels(&query_from, &query_to) {
+                    Ok(noise_levels) => noise_levels,
+                    Err(e) => {
+                        error!("error querying noise levels {:?}", e);
+                        return future::ok(Response::new().with_status(StatusCode::BadRequest));
+                    }
+                };
 
+                let response = serde_json::to_string(&noise_levels)
+                    .expect("could not serialize noise levels");
+                
                 Response::new()
+                    .with_header(ContentType::json())
                     .with_header(ContentLength(response.len() as u64))
                     .with_body(response)
             },
@@ -198,17 +208,29 @@ fn parse_timestamp(timestamp: i64) -> Result<DateTime<Utc>, Error> {
     Ok(DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(timestamp, 0), Utc))
 }
 
-// todo 
+fn get_noise_levels(from: &DateTime<Utc>, to: &DateTime<Utc>) -> Result<Vec<(i64, f32)>, Error> {
+    let conn = open_connection()?;
 
-// GET /noise_levels?from=0&to=0
-// body format: [[unix_time, noise_level],...]
-// data ascending in unix time
-// no to value = now
-//
-// example
-// stored unix_time: 2018-02-26 20:27:46:658244400 UTC
-// Timespec { sec: 1519676866, nsec: 658244400 }
-// format %Y-%m-%d %H:%M:%S:%f %Z
+    let mut stmt = conn.prepare("SELECT unix_time, noise_level FROM noise_levels
+                                 WHERE datetime(unix_time) BETWEEN datetime(?1) AND datetime(?2)")?;
+
+    let result = stmt
+        .query_map(&[from, to], |row| {
+            let unix_time: DateTime<Utc> = row.get(0);
+            let noise_level: Vec<u8> = row.get(1);
+            (unix_time, noise_level)
+        })?
+        .filter_map(Result::ok)
+        .map(|(unix_time, noise_level)| {
+            (unix_time.timestamp(), parse_noise_level(noise_level.as_slice())
+                .expect("couldnt read db noise_level"))
+        })
+        .collect::<Vec<_>>();
+
+    Ok(result)
+}
+
+// todo 
 
 // potentially open websocket connection for streaming live data
 // or just poll /noise_levels endpoint
