@@ -37,7 +37,7 @@ use hyper::header::ContentLength;
 use futures::{Future, Stream};
 use futures::future::{self, FutureResult};
 use url::form_urlencoded;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, NaiveDateTime};
 
 fn main() {
     try_main().expect("oh no");
@@ -55,7 +55,6 @@ fn try_main() -> Result<(), Error> {
                         unix_time TEXT PRIMARY KEY,
                         noise_level BLOB NOT NULL
                       )", &[])?;
-        //conn.execute("DROP TABLE noise_levels", &[])?;
 
         // read existing values as a test
         //let mut stmt = conn.prepare("SELECT unix_time, noise_level FROM noise_levels")?;
@@ -160,7 +159,7 @@ impl Service for Server {
                     }
                 };
 
-                let response = format!("Hello world!\nfrom: {}\nto: {}", 
+                let response = format!("Hello world!\nfrom: {:?}\nto: {:?}", 
                                         query_from, query_to);       
 
                 Response::new()
@@ -175,7 +174,7 @@ impl Service for Server {
     }
 }
 
-fn parse_query(query: &str) -> Result<(i64, i64), Error> {
+fn parse_query(query: &str) -> Result<(DateTime<Utc>, DateTime<Utc>), Error> {
     let pairs = form_urlencoded::parse(query.as_bytes());
 
     let mut from = None;
@@ -188,8 +187,15 @@ fn parse_query(query: &str) -> Result<(i64, i64), Error> {
             _ => {},
         }
     }
-    
-    Ok((from?, to.or(Some(0))?))
+
+    let from = parse_timestamp(from?)?;
+    let to = parse_timestamp(to.or(Some(0)).unwrap())?;
+
+    Ok((from, to))
+}
+
+fn parse_timestamp(timestamp: i64) -> Result<DateTime<Utc>, Error> {
+    Ok(DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(timestamp, 0), Utc))
 }
 
 // todo 
