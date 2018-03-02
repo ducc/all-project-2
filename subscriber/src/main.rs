@@ -13,6 +13,7 @@ extern crate futures;
 extern crate tokio_core;
 extern crate hyper;
 extern crate url;
+extern crate chrono;
 
 mod error;
 
@@ -27,7 +28,7 @@ use rumqtt::{
 use byteorder::{ReadBytesExt, BigEndian};
 use std::env;
 use rusqlite::Connection;
-use time::Timespec;
+use time::Duration;
 use std::io::Error as IoError;
 use tokio_core::reactor::Core;
 use hyper::server::{Http, Service, Request, Response};
@@ -36,6 +37,7 @@ use hyper::header::ContentLength;
 use futures::{Future, Stream};
 use futures::future::{self, FutureResult};
 use url::form_urlencoded;
+use chrono::{DateTime, Utc};
 
 fn main() {
     try_main().expect("oh no");
@@ -53,13 +55,16 @@ fn try_main() -> Result<(), Error> {
                         unix_time TEXT PRIMARY KEY,
                         noise_level BLOB NOT NULL
                       )", &[])?;
+        //conn.execute("DROP TABLE noise_levels", &[])?;
 
         // read existing values as a test
-        let mut stmt = conn.prepare("SELECT unix_time, noise_level FROM noise_levels")?;
-        
+        //let mut stmt = conn.prepare("SELECT unix_time, noise_level FROM noise_levels")?;
+        let mut stmt = conn.prepare("SELECT unix_time, noise_level FROM noise_levels
+                                     WHERE datetime(unix_time) BETWEEN datetime(?1) AND datetime(?2)")?;
+
         stmt
-            .query_map(&[], |row| {
-                let unix_time: Timespec = row.get(0);
+            .query_map(&[&(Utc::now() - Duration::seconds(120)), &Utc::now()], |row| {
+                let unix_time: DateTime<Utc> = row.get(0);
                 let noise_level: Vec<u8> = row.get(1);
                 (unix_time, noise_level)
             })?
@@ -124,7 +129,7 @@ fn on_message(msg: Message) -> Result<(), Error> {
 
     conn.execute("INSERT INTO noise_levels (unix_time, noise_level)
                   VALUES (?1, ?2)",
-                &[&time::get_time(), &*msg.payload])?;
+                &[&Utc::now(), &*msg.payload])?;
 
     Ok(())
 }
@@ -188,11 +193,16 @@ fn parse_query(query: &str) -> Result<(i64, i64), Error> {
 }
 
 // todo 
-//
+
 // GET /noise_levels?from=0&to=0
 // body format: [[unix_time, noise_level],...]
 // data ascending in unix time
 // no to value = now
 //
+// example
+// stored unix_time: 2018-02-26 20:27:46:658244400 UTC
+// Timespec { sec: 1519676866, nsec: 658244400 }
+// format %Y-%m-%d %H:%M:%S:%f %Z
+
 // potentially open websocket connection for streaming live data
 // or just poll /noise_levels endpoint
