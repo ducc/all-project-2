@@ -48,33 +48,14 @@ fn try_main() -> Result<(), Error> {
     env_logger::init();
     kankyo::load()?;
 
-    // create sql table if it doesnt exist
-
     {
+        // create sql table if it doesnt exist
+
         let conn = open_connection()?;
         conn.execute("CREATE TABLE IF NOT EXISTS noise_levels (
                         unix_time TEXT PRIMARY KEY,
                         noise_level BLOB NOT NULL
                       )", &[])?;
-
-        // read existing values as a test
-        //let mut stmt = conn.prepare("SELECT unix_time, noise_level FROM noise_levels")?;
-        let mut stmt = conn.prepare("SELECT unix_time, noise_level FROM noise_levels
-                                     WHERE datetime(unix_time) BETWEEN datetime(?1) AND datetime(?2)")?;
-
-        stmt
-            .query_map(&[&(Utc::now() - Duration::seconds(120)), &Utc::now()], |row| {
-                let unix_time: DateTime<Utc> = row.get(0);
-                let noise_level: Vec<u8> = row.get(1);
-                (unix_time, noise_level)
-            })?
-            .filter_map(Result::ok)
-            .for_each(|(unix_time, noise_level)| {
-                let noise_level = parse_noise_level(noise_level.as_slice())
-                    .expect("couldnt read db noise_level");
-
-                debug!("unix_time: {:?} noise_level: {:?}", unix_time, noise_level);
-            });
     }
 
     // start mqtt client
@@ -92,6 +73,7 @@ fn try_main() -> Result<(), Error> {
     request.subscribe(vec![(&env::var("MQTT_TOPIC")?, QoS::Level0)])?;
 
     // start http server
+    
     let http_addr = env::var("HTTP_ADDRESS")?.parse().unwrap();
 
     let mut core = Core::new()?;
@@ -126,7 +108,6 @@ fn on_message(msg: Message) -> Result<(), Error> {
             .expect("couldnt read mqtt noise_level"));
 
     let conn = open_connection()?;
-
     conn.execute("INSERT INTO noise_levels (unix_time, noise_level)
                   VALUES (?1, ?2)",
                 &[&Utc::now(), &*msg.payload])?;
