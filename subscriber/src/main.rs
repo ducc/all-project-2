@@ -29,12 +29,11 @@ use rumqtt::{
 use byteorder::{ReadBytesExt, BigEndian};
 use std::env;
 use rusqlite::Connection;
-use time::Duration;
 use std::io::Error as IoError;
 use tokio_core::reactor::Core;
 use hyper::server::{Http, Service, Request, Response};
 use hyper::{Get, StatusCode, Error as HyperError};
-use hyper::header::{ContentLength, ContentType};
+use hyper::header::{ContentLength, ContentType, AccessControlAllowOrigin};
 use futures::{Future, Stream};
 use futures::future::{self, FutureResult};
 use url::form_urlencoded;
@@ -73,7 +72,7 @@ fn try_main() -> Result<(), Error> {
     request.subscribe(vec![(&env::var("MQTT_TOPIC")?, QoS::Level0)])?;
 
     // start http server
-    
+
     let http_addr = env::var("HTTP_ADDRESS")?.parse().unwrap();
 
     let mut core = Core::new()?;
@@ -124,12 +123,15 @@ impl Service for Server {
     type Future = FutureResult<Response, Self::Error>;
 
     fn call(&self, req: Request) -> Self::Future {
+        let response = Response::new()
+            .with_header(AccessControlAllowOrigin::Any);
+
         future::ok(match (req.method(), req.path()) {
             (&Get, "/noise_levels") => {
                 let query = match req.uri().query() {
                     Some(query) => query,
                     None => {
-                        return future::ok(Response::new().with_status(StatusCode::BadRequest));
+                        return future::ok(response.with_status(StatusCode::BadRequest));
                     }
                 };
 
@@ -137,7 +139,7 @@ impl Service for Server {
                     Ok(pairs) => pairs,
                     Err(e) => {
                         error!("error parsing query {:?}", e);
-                        return future::ok(Response::new().with_status(StatusCode::BadRequest));
+                        return future::ok(response.with_status(StatusCode::BadRequest));
                     }
                 };
 
@@ -145,20 +147,20 @@ impl Service for Server {
                     Ok(noise_levels) => noise_levels,
                     Err(e) => {
                         error!("error querying noise levels {:?}", e);
-                        return future::ok(Response::new().with_status(StatusCode::BadRequest));
+                        return future::ok(response.with_status(StatusCode::BadRequest));
                     }
                 };
 
-                let response = serde_json::to_string(&noise_levels)
+                let response_body = serde_json::to_string(&noise_levels)
                     .expect("could not serialize noise levels");
                 
-                Response::new()
+                response
                     .with_header(ContentType::json())
-                    .with_header(ContentLength(response.len() as u64))
-                    .with_body(response)
+                    .with_header(ContentLength(response_body.len() as u64))
+                    .with_body(response_body)
             },
             _ => {
-                Response::new()
+                response
                     .with_status(StatusCode::NotFound)
             }
         })       
