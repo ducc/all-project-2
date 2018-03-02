@@ -1,4 +1,6 @@
 subscriber/target
 subscriber/.env
 subscriber/*.sqlite
+
 frontend/build
+frontend/node_modules
