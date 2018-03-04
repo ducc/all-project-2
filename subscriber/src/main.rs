@@ -44,8 +44,8 @@ fn main() {
 }
 
 fn try_main() -> Result<(), Error> {
-    env_logger::init();
     kankyo::load()?;
+    env_logger::init();
 
     {
         // create sql table if it doesnt exist
