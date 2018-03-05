@@ -11,13 +11,12 @@ const API_URL = 'http://localhost:1337/noise_levels?from=%d&to=%d'
 
 async function getNoiseLevels(queryParams) {
   let from = queryParams.from === undefined
-    ? 0 : queryParams.from
+    ? 0
+    : queryParams.from
 
   let to = queryParams.to === undefined 
     ? Math.floor(Date.now() / 1000)
     : queryParams.to
-
-  console.log('from, to: ' + from + ', ' + to)
 
   let url = util.format(API_URL, from, to)
 
@@ -26,11 +25,7 @@ async function getNoiseLevels(queryParams) {
       return res.data
     })
 
-  console.log('data: ' + JSON.stringify(data))
-
   data = mapData(data)
-  console.log('mapped data: ' + data)
-
   return data
 }
 
@@ -69,9 +64,11 @@ class ExampleGoogleChart extends ReactQueryParams {
       options: {},
       data: {},
     }
+    this.timerId = null;
   }
 
   async componentDidMount() {
+    this.timerId = setInterval(async () => {
       let data = await getNoiseLevels(this.queryParams)
 
       this.setState({
@@ -83,8 +80,13 @@ class ExampleGoogleChart extends ReactQueryParams {
         },
         data: [['Time', 'Noise level']].concat(data),
       })
+    }, 1000)
+  }
 
-      console.log("data2: " + JSON.stringify(this.state.data));
+  componentWillUnmount() {
+    if (this.timerId !== null) {
+      clearInterval(this.timerId)
+    }
   }
 
   render() {
