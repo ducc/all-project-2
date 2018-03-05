@@ -1,11 +1,37 @@
 import React, { Component } from 'react'
 import { Chart } from 'react-google-charts'
+import { LineChart, Line } from 'recharts'
+import ReactQueryParams from 'react-query-params'
 import logo from './logo.svg'
 import './App.css'
 
 const axios = require('axios')
+const util = require('util')
 
-class ExampleChart extends Component {
+const API_URL = 'http://localhost:1337/noise_levels?from=%d&to=%d'
+
+async function getNoiseLevels(queryParams) {
+  let from = queryParams.from === undefined
+    ? 0 : queryParams.from
+
+  let to = queryParams.to === undefined 
+    ? Math.floor(Date.now() / 1000)
+    : queryParams.to
+
+  console.log('from, to: ' + from + ', ' + to)
+
+  let url = util.format(API_URL, from, to)
+
+  let data = await axios.get(url)
+    .then(res => {
+      return res.data
+    })
+
+  console.log('data: ' + JSON.stringify(data))
+  return data
+}
+
+class ExampleGoogleChart extends ReactQueryParams {
   constructor(props) {
     super(props)
     this.state = {
@@ -15,9 +41,7 @@ class ExampleChart extends Component {
   }
 
   async componentDidMount() {
-      let data = await axios.get('http://localhost:1337/noise_levels?from=1519975366&to=1519975379').then(res => {
-        return res.data
-      })
+      let data = await getNoiseLevels(this.queryParams)
 
       this.setState({
         options: {
@@ -47,10 +71,29 @@ class ExampleChart extends Component {
   }
 }
 
+class ExampleRechartsChart extends Component {
+  constructor(props) {
+    super(props)
+  }
+
+  async componentDidMount() {
+    // get data, set state
+  }
+
+  render() {
+    return (
+      <p>todo</p>
+    )
+  }
+}
+
 class App extends Component {
   render() {
     return (
-      <ExampleChart />
+      <div>
+        <ExampleGoogleChart />
+        {/*<ExampleRechartsChart />*/}
+      </div>
     )
   }
 }

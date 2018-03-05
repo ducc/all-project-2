@@ -1,3 +1,5 @@
+*.swp
+
 subscriber/target
 subscriber/.env
 subscriber/*.sqlite
