@@ -1,6 +1,5 @@
 import React, { Component } from 'react'
 import { Chart } from 'react-google-charts'
-import { LineChart, Line } from 'recharts'
 import ReactQueryParams from 'react-query-params'
 import logo from './logo.svg'
 import './App.css'
@@ -28,7 +27,43 @@ async function getNoiseLevels(queryParams) {
     })
 
   console.log('data: ' + JSON.stringify(data))
+
+  data = mapDataToDates(data)
+  data = mapDataToPercentages(data)
+  console.log('mapped data: ' + data)
+
   return data
+}
+
+function mapDataToDates(data) {
+  return data.map(i => {
+    return [new Date(i[0] * 1000), i[1]]
+  })
+}
+
+function findMinimum(data) {
+  let min = 1
+  data.forEach(function(i) {
+    if (i[1] < min) min = i[1]
+  })
+  return min
+}
+
+function findMaximum(data) {
+  let max = 0
+  data.forEach(function(i) {
+    if (i[1] > max) max = i[1]
+  })
+  return max
+}
+
+function mapDataToPercentages(data) {
+  let min = findMinimum(data)
+  let max = findMaximum(data)
+
+  return data.map(function(i) {
+    return [i[0], ((i[1] - min) * 100) / (max - min)]
+  })
 }
 
 class ExampleGoogleChart extends ReactQueryParams {
@@ -71,28 +106,11 @@ class ExampleGoogleChart extends ReactQueryParams {
   }
 }
 
-class ExampleRechartsChart extends Component {
-  constructor(props) {
-    super(props)
-  }
-
-  async componentDidMount() {
-    // get data, set state
-  }
-
-  render() {
-    return (
-      <p>todo</p>
-    )
-  }
-}
-
 class App extends Component {
   render() {
     return (
       <div>
         <ExampleGoogleChart />
-        {/*<ExampleRechartsChart />*/}
       </div>
     )
   }
