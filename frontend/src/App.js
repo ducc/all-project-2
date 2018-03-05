@@ -28,17 +28,10 @@ async function getNoiseLevels(queryParams) {
 
   console.log('data: ' + JSON.stringify(data))
 
-  data = mapDataToDates(data)
-  data = mapDataToPercentages(data)
+  data = mapData(data)
   console.log('mapped data: ' + data)
 
   return data
-}
-
-function mapDataToDates(data) {
-  return data.map(i => {
-    return [new Date(i[0] * 1000), i[1]]
-  })
 }
 
 function findMinimum(data) {
@@ -57,12 +50,15 @@ function findMaximum(data) {
   return max
 }
 
-function mapDataToPercentages(data) {
+function mapData(data) {
   let min = findMinimum(data)
   let max = findMaximum(data)
 
   return data.map(function(i) {
-    return [i[0], ((i[1] - min) * 100) / (max - min)]
+    return [
+      new Date(i[0] * 1000).toUTCString(),
+      ((i[1] - min) * 100) / (max - min)
+    ]
   })
 }
 
