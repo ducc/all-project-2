@@ -1,15 +1,15 @@
 import React, { Component } from 'react'
 import { Chart } from 'react-google-charts'
 import ReactQueryParams from 'react-query-params'
-import logo from './logo.svg'
 import './App.css'
+import Config from './config.js'
 
 const axios = require('axios')
 const util = require('util')
 
-const API_URL = 'http://localhost:1337/noise_levels?from=%d&to=%d'
+const API_URL = Config.API_URL + '%s?from=%d&to=%d'
 
-async function getNoiseLevels(queryParams) {
+async function getReadings(graphId, queryParams) {
   let from = queryParams.from === undefined
     ? 0
     : queryParams.from
@@ -18,7 +18,7 @@ async function getNoiseLevels(queryParams) {
     ? Math.floor(Date.now() / 1000)
     : queryParams.to
 
-  let url = util.format(API_URL, from, to)
+  let url = util.format(API_URL, graphId, from, to)
 
   let data = await axios.get(url)
     .then(res => {
@@ -49,36 +49,46 @@ function mapData(data) {
   let min = findMinimum(data)
   let max = findMaximum(data)
 
-  return data.map(function(i) {
-    return [
-      new Date(i[0] * 1000).toUTCString(),
-      ((i[1] - min) * 100) / (max - min)
-    ]
-  })
+  return data
+    .map(function(i) {
+      return [
+        new Date(i[0] * 1000).toUTCString(),
+        ((i[1] - min) * 100) / (max - min)
+      ]
+    })
 }
 
-class ExampleGoogleChart extends ReactQueryParams {
+class GoogleChart extends ReactQueryParams {
   constructor(props) {
     super(props)
     this.state = {
       options: {},
-      data: {},
+      data: {}
     }
     this.timerId = null;
   }
 
   async componentDidMount() {
+    let fromTime = null
+    if (this.queryParams.from === "now") {
+      fromTime = Math.floor(Date.now() / 1000)
+    } else {
+      fromTime = this.queryParams.from
+    }
+
     this.timerId = setInterval(async () => {
-      let data = await getNoiseLevels(this.queryParams)
+      let queryParams = this.queryParams
+      queryParams.from = fromTime
+      let data = await getReadings(this.props.graphId, queryParams)
 
       this.setState({
         options: {
-          title: 'Time vs. Noise level comparison',
+          title: 'Time vs. ' + this.props.name + ' comparison',
           hAxis: { title: 'Time', minValue: 0 },
-          vAxis: { title: 'Noise level', minValue: 0 },
+          vAxis: { title: this.props.name, minValue: 0 },
           legend: 'none',
         },
-        data: [['Time', 'Noise level']].concat(data),
+        data: [['Time', this.props.name]].concat(data),
       })
     }, 1000)
   }
@@ -90,12 +100,16 @@ class ExampleGoogleChart extends ReactQueryParams {
   }
 
   render() {
+    if (Object.keys(this.state.data).length === 0 && this.state.data.constructor === Object) {
+      return null
+    }
+
     return (
       <Chart
-        chartType='ScatterChart'
+        chartType='AreaChart'
         data={this.state.data}
         options={this.state.options}
-        graph_id='ScatterChart'
+        graph_id='AreaChart'
         width='100%'
         height='400px'
         legend_toggle
@@ -105,10 +119,43 @@ class ExampleGoogleChart extends ReactQueryParams {
 }
 
 class App extends Component {
+  constructor(props) {
+    super(props)
+    this.state = {
+      value: 0,
+    }
+    this.handleChange = this.handleChange.bind(this);
+  }
+  
+  handleChange(event) {
+    this.setState({
+      value: event.target.value,
+    })
+  }
+
+  getOption(value) {
+    if (value == 0) {
+      return ['noise/decibels', 'Noise Levels']
+    } else if (value == 1) {
+      return ['battery/percentage', 'Battery Percentage']
+    } else {
+      console.log("Oh no!!! unknown option!!!!")
+    }
+  }
+
   render() {
+    let graphId = this.getOption(this.state.value)[0];
+    let graphName = this.getOption(this.state.value)[0];
+
     return (
       <div>
-        <ExampleGoogleChart />
+        <form>
+          <select onChange={this.handleChange}>
+            <option defaultValue value={0}>Noise Levels</option>
+            <option value={1}>Battery Percentage</option>
+          </select>
+        </form>
+        <GoogleChart graphId={graphId} name={graphName} />
       </div>
     )
   }
