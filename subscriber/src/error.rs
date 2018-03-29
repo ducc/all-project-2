@@ -6,6 +6,8 @@ use rusqlite::Error as RusqliteError;
 use hyper::Error as HyperError;
 use std::option::NoneError;
 use std::num::ParseIntError;
+use std::num::ParseFloatError;
+use std::string::FromUtf8Error;
 
 pub enum Error {
     Io(IOError),
@@ -15,6 +17,9 @@ pub enum Error {
     Hyper(HyperError),
     None(NoneError),
     ParseInt(ParseIntError),
+    ParseFloat(ParseFloatError),
+    FromUtf8(FromUtf8Error),
+    InvalidValue,
 }
 
 impl fmt::Debug for Error {
@@ -30,6 +35,9 @@ impl fmt::Debug for Error {
             Hyper(ref err) => err.description(),
             None(_) => "std::option::Option value not present",
             ParseInt(ref err) => err.description(),
+            ParseFloat(ref err) => err.description(),
+            FromUtf8(ref err) => err.description(),
+            InvalidValue => "given data value is invalid"
         })  
     }   
 }
@@ -73,5 +81,17 @@ impl From<NoneError> for Error {
 impl From<ParseIntError> for Error {
     fn from(err: ParseIntError) -> Self {
         Error::ParseInt(err)
+    }
+}
+
+impl From<ParseFloatError> for Error {
+    fn from(err: ParseFloatError) -> Self {
+        Error::ParseFloat(err)
+    }
+}
+
+impl From<FromUtf8Error> for Error {
+    fn from(err: FromUtf8Error) -> Self {
+        Error::FromUtf8(err)
     }
 }

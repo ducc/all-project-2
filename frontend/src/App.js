@@ -7,7 +7,8 @@ import './App.css'
 const axios = require('axios')
 const util = require('util')
 
-const API_URL = 'http://localhost:1337/noise_levels?from=%d&to=%d'
+//const API_URL = 'http://localhost:1337/noise/decibels?from=%d&to=%d'
+const API_URL = 'http://localhost:1337/battery/percentage?from=%d&to=%d'
 
 async function getNoiseLevels(queryParams) {
   let from = queryParams.from === undefined

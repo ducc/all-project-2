@@ -121,17 +121,32 @@ fn open_connection() -> Result<Connection, Error> {
     Ok(Connection::open(&env::var("SQLITE_DATABASE")?)?)
 }
 
-fn parse_noise_level(mut payload: &[u8]) -> Result<f32, IoError> {
-    payload.read_f32::<BigEndian>()
+fn parse_noise_level(mut payload: &[u8]) -> Result<f32, Error> {
+    let payload_str = String::from_utf8(payload.to_vec())?;
+    if payload_str == "-Infinity" {
+        return Ok(0f32)
+    }
+    payload_str.parse::<f32>().map_err(From::from)
 }
 
 fn on_message(parent_topic: String, msg: Message) -> Result<(), Error> {
     let topic: String = msg.topic.into();
     let topic = &topic[parent_topic.len()..];
 
-    trace!("MSG: {:?}", msg.payload.as_slice());
-    debug!("{}: {:?}", topic, parse_noise_level(msg.payload.as_slice())
-            .expect("couldnt read mqtt noise_level"));
+    trace!("{}: message {:?}", topic, msg.payload.as_slice());
+    let value = match parse_noise_level(msg.payload.as_slice()) {
+        Ok(value) => {
+            if value == 0f32 {
+                return Ok(());
+            }
+            value
+        },
+        Err(e) => {
+            panic!("error parsing noise level: {:?}", e);
+            // infers unreachable!()
+        },
+    };
+    debug!("{}: value   {:?}", topic, value);
 
     let conn = open_connection()?;
     let statement = format!("INSERT INTO {} (unix_time, reading)
@@ -161,7 +176,6 @@ impl Service for Server {
         }
 
         let target_topic = &req.path()[1..];
-        println!("target topic: {}", &target_topic);
         if !self.allowed_topics.contains(&target_topic.to_string()) {
             return future::ok(response.with_status(StatusCode::NotFound));
         }
@@ -197,50 +211,6 @@ impl Service for Server {
             .with_header(ContentLength(response_body.len() as u64))
             .with_body(response_body))       
     }
-
-    /*fn call(&self, req: Request) -> Self::Future {
-        let response = Response::new()
-            .with_header(AccessControlAllowOrigin::Any);
-
-        future::ok(match (req.method(), req.path()) {
-            (&Get, "/noise_levels") => {
-                let query = match req.uri().query() {
-                    Some(query) => query,
-                    None => {
-                        return future::ok(response.with_status(StatusCode::BadRequest));
-                    }
-                };
-
-                let (query_from, query_to) = match parse_query(query) {
-                    Ok(pairs) => pairs,
-                    Err(e) => {
-                        error!("error parsing query {:?}", e);
-                        return future::ok(response.with_status(StatusCode::BadRequest));
-                    }
-                };
-
-                let noise_levels = match get_noise_levels(&query_from, &query_to) {
-                    Ok(noise_levels) => noise_levels,
-                    Err(e) => {
-                        error!("error querying noise levels {:?}", e);
-                        return future::ok(response.with_status(StatusCode::BadRequest));
-                    }
-                };
-
-                let response_body = serde_json::to_string(&noise_levels)
-                    .expect("could not serialize noise levels");
-                
-                response
-                    .with_header(ContentType::json())
-                    .with_header(ContentLength(response_body.len() as u64))
-                    .with_body(response_body)
-            },
-            _ => {
-                response
-                    .with_status(StatusCode::NotFound)
-            }
-        })       
-    }*/
 }
 
 fn parse_query(query: &str) -> Result<(DateTime<Utc>, DateTime<Utc>), Error> {
@@ -276,7 +246,6 @@ fn get_readings(topic: &str, from: &DateTime<Utc>, to: &DateTime<Utc>) -> Result
 
     let result = stmt
         .query_map(&[from, to], |row| {
-            debug!("got row");
             let unix_time: DateTime<Utc> = row.get(0);
             let noise_level: Vec<u8> = row.get(1);
             (unix_time, noise_level)
