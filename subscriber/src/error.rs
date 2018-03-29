@@ -19,7 +19,6 @@ pub enum Error {
     ParseInt(ParseIntError),
     ParseFloat(ParseFloatError),
     FromUtf8(FromUtf8Error),
-    InvalidValue,
 }
 
 impl fmt::Debug for Error {
@@ -37,7 +36,6 @@ impl fmt::Debug for Error {
             ParseInt(ref err) => err.description(),
             ParseFloat(ref err) => err.description(),
             FromUtf8(ref err) => err.description(),
-            InvalidValue => "given data value is invalid"
         })  
     }   
 }

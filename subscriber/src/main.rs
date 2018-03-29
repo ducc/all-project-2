@@ -26,10 +26,8 @@ use rumqtt::{
     QoS,
     Message
 };
-use byteorder::{ReadBytesExt, BigEndian};
 use std::env;
 use rusqlite::Connection;
-use std::io::Error as IoError;
 use tokio_core::reactor::Core;
 use hyper::server::{Http, Service, Request, Response};
 use hyper::{Get, StatusCode, Error as HyperError};
@@ -51,7 +49,6 @@ fn try_main() -> Result<(), Error> {
 
     {
         // create sql tables if they doesnt exist
-
         let conn = open_connection()?;
 
         for subtopic in mqtt_subtopics.split(",") {
@@ -67,7 +64,6 @@ fn try_main() -> Result<(), Error> {
     }
 
     // start mqtt client
-
     let opts = MqttOptions::new()
         .set_keep_alive(5)
         .set_reconnect(3)
@@ -121,7 +117,7 @@ fn open_connection() -> Result<Connection, Error> {
     Ok(Connection::open(&env::var("SQLITE_DATABASE")?)?)
 }
 
-fn parse_noise_level(mut payload: &[u8]) -> Result<f32, Error> {
+fn parse_noise_level(payload: &[u8]) -> Result<f32, Error> {
     let payload_str = String::from_utf8(payload.to_vec())?;
     if payload_str == "-Infinity" {
         return Ok(0f32)
@@ -141,10 +137,7 @@ fn on_message(parent_topic: String, msg: Message) -> Result<(), Error> {
             }
             value
         },
-        Err(e) => {
-            panic!("error parsing noise level: {:?}", e);
-            // infers unreachable!()
-        },
+        Err(e) => panic!("error parsing noise level: {:?}", e),
     };
     debug!("{}: value   {:?}", topic, value);
 
@@ -190,7 +183,8 @@ impl Service for Server {
         let (query_from, query_to) = match parse_query(query) {
             Ok(pairs) => pairs,
             Err(e) => {
-                error!("error parsing query {:?}", e);
+                println!("query: {}", query);
+                error!("error parsing query: {:?}", e);
                 return future::ok(response.with_status(StatusCode::BadRequest));
             }
         };

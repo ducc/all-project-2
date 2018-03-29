@@ -1,16 +1,15 @@
 import React, { Component } from 'react'
 import { Chart } from 'react-google-charts'
 import ReactQueryParams from 'react-query-params'
-import logo from './logo.svg'
 import './App.css'
+import Config from './config.js'
 
 const axios = require('axios')
 const util = require('util')
 
-//const API_URL = 'http://localhost:1337/noise/decibels?from=%d&to=%d'
-const API_URL = 'http://localhost:1337/battery/percentage?from=%d&to=%d'
+const API_URL = Config.API_URL + '%s?from=%d&to=%d'
 
-async function getNoiseLevels(queryParams) {
+async function getReadings(graphId, queryParams) {
   let from = queryParams.from === undefined
     ? 0
     : queryParams.from
@@ -19,7 +18,7 @@ async function getNoiseLevels(queryParams) {
     ? Math.floor(Date.now() / 1000)
     : queryParams.to
 
-  let url = util.format(API_URL, from, to)
+  let url = util.format(API_URL, graphId, from, to)
 
   let data = await axios.get(url)
     .then(res => {
@@ -50,24 +49,7 @@ function mapData(data) {
   let min = findMinimum(data)
   let max = findMaximum(data)
 
-  let values = data.slice().map(i => i[1]).sort((a, b) => a - b)
-  let q1, q3
-  if ((values.length / 4) % 1 === 0) {
-    q1 = 1/2 * (values[(values.length / 4)] + values[(values.length / 4) + 1])
-    q3 = 1/2 * (values[(values.length * (3 / 4))] + values[(values.length * (3 / 4)) + 1])
-  } else {
-    q1 = values[Math.floor(values.length / 4 + 1)];
-    q3 = values[Math.ceil(values.length * (3 / 4) + 1)];
-  }
-  let iqr = q3 - q1;
-  let maxValue = q3 + iqr * 1.5;
-  let minValue = q1 - iqr * 1.5;
-
   return data
-    .filter(function(i) {
-      //return (i[1] >= minValue) && (i[1] <= maxValue)
-      return true;
-    })
     .map(function(i) {
       return [
         new Date(i[0] * 1000).toUTCString(),
@@ -81,7 +63,7 @@ class GoogleChart extends ReactQueryParams {
     super(props)
     this.state = {
       options: {},
-      data: {},
+      data: {}
     }
     this.timerId = null;
   }
@@ -94,27 +76,19 @@ class GoogleChart extends ReactQueryParams {
       fromTime = this.queryParams.from
     }
 
-    let oldData = null;
-
     this.timerId = setInterval(async () => {
       let queryParams = this.queryParams
       queryParams.from = fromTime
-      let data = await getNoiseLevels(queryParams)
-
-      /*if (oldData !== null) {
-        data = oldData.concat(data)
-      }
-
-      oldData = data*/
+      let data = await getReadings(this.props.graphId, queryParams)
 
       this.setState({
         options: {
-          title: 'Time vs. Noise level comparison',
+          title: 'Time vs. ' + this.props.name + ' comparison',
           hAxis: { title: 'Time', minValue: 0 },
-          vAxis: { title: 'Noise level', minValue: 0 },
+          vAxis: { title: this.props.name, minValue: 0 },
           legend: 'none',
         },
-        data: [['Time', 'Noise level']].concat(data),
+        data: [['Time', this.props.name]].concat(data),
       })
     }, 1000)
   }
@@ -126,6 +100,10 @@ class GoogleChart extends ReactQueryParams {
   }
 
   render() {
+    if (Object.keys(this.state.data).length === 0 && this.state.data.constructor === Object) {
+      return null
+    }
+
     return (
       <Chart
         chartType='AreaChart'
@@ -141,10 +119,43 @@ class GoogleChart extends ReactQueryParams {
 }
 
 class App extends Component {
+  constructor(props) {
+    super(props)
+    this.state = {
+      value: 0,
+    }
+    this.handleChange = this.handleChange.bind(this);
+  }
+  
+  handleChange(event) {
+    this.setState({
+      value: event.target.value,
+    })
+  }
+
+  getOption(value) {
+    if (value == 0) {
+      return ['noise/decibels', 'Noise Levels']
+    } else if (value == 1) {
+      return ['battery/percentage', 'Battery Percentage']
+    } else {
+      console.log("Oh no!!! unknown option!!!!")
+    }
+  }
+
   render() {
+    let graphId = this.getOption(this.state.value)[0];
+    let graphName = this.getOption(this.state.value)[0];
+
     return (
       <div>
-        <GoogleChart />
+        <form>
+          <select onChange={this.handleChange}>
+            <option defaultValue value={0}>Noise Levels</option>
+            <option value={1}>Battery Percentage</option>
+          </select>
+        </form>
+        <GoogleChart graphId={graphId} name={graphName} />
       </div>
     )
   }
