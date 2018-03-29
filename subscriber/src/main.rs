@@ -78,11 +78,6 @@ fn try_main() -> Result<(), Error> {
     });
     let mut request = MqttClient::start(opts, Some(callback))?;
 
-<<<<<<< HEAD
-    // start http server
-
-    let http_addr = env::var("API_ADDRESS")?.parse().unwrap();
-=======
     let mqtt_subtopics = mqtt_subtopics.split(",");
     mqtt_subtopics.clone().into_iter()
         .map(|subtopic| (String::from(mqtt_topic.as_ref()) + subtopic, QoS::Level0))
@@ -91,7 +86,6 @@ fn try_main() -> Result<(), Error> {
                 error!("Error subscribing to topic {}: {:?}", &subtopic, e);
             }
         });
->>>>>>> multiple-topics
 
     // start http server
     let http_addr = env::var("API_ADDRESS")?.parse().unwrap();
