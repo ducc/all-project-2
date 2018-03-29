@@ -49,15 +49,33 @@ function mapData(data) {
   let min = findMinimum(data)
   let max = findMaximum(data)
 
-  return data.map(function(i) {
-    return [
-      new Date(i[0] * 1000).toUTCString(),
-      ((i[1] - min) * 100) / (max - min)
-    ]
-  })
+  let values = data.slice().map(i => i[1]).sort((a, b) => a - b)
+  let q1, q3
+  if ((values.length / 4) % 1 === 0) {
+    q1 = 1/2 * (values[(values.length / 4)] + values[(values.length / 4) + 1])
+    q3 = 1/2 * (values[(values.length * (3 / 4))] + values[(values.length * (3 / 4)) + 1])
+  } else {
+    q1 = values[Math.floor(values.length / 4 + 1)];
+    q3 = values[Math.ceil(values.length * (3 / 4) + 1)];
+  }
+  let iqr = q3 - q1;
+  let maxValue = q3 + iqr * 1.5;
+  let minValue = q1 - iqr * 1.5;
+
+  return data
+    .filter(function(i) {
+      //return (i[1] >= minValue) && (i[1] <= maxValue)
+      return true;
+    })
+    .map(function(i) {
+      return [
+        new Date(i[0] * 1000).toUTCString(),
+        ((i[1] - min) * 100) / (max - min)
+      ]
+    })
 }
 
-class ExampleGoogleChart extends ReactQueryParams {
+class GoogleChart extends ReactQueryParams {
   constructor(props) {
     super(props)
     this.state = {
@@ -68,8 +86,25 @@ class ExampleGoogleChart extends ReactQueryParams {
   }
 
   async componentDidMount() {
+    let fromTime = null
+    if (this.queryParams.from === "now") {
+      fromTime = Math.floor(Date.now() / 1000)
+    } else {
+      fromTime = this.queryParams.from
+    }
+
+    let oldData = null;
+
     this.timerId = setInterval(async () => {
-      let data = await getNoiseLevels(this.queryParams)
+      let queryParams = this.queryParams
+      queryParams.from = fromTime
+      let data = await getNoiseLevels(queryParams)
+
+      /*if (oldData !== null) {
+        data = oldData.concat(data)
+      }
+
+      oldData = data*/
 
       this.setState({
         options: {
@@ -92,10 +127,10 @@ class ExampleGoogleChart extends ReactQueryParams {
   render() {
     return (
       <Chart
-        chartType='ScatterChart'
+        chartType='AreaChart'
         data={this.state.data}
         options={this.state.options}
-        graph_id='ScatterChart'
+        graph_id='AreaChart'
         width='100%'
         height='400px'
         legend_toggle
@@ -108,7 +143,7 @@ class App extends Component {
   render() {
     return (
       <div>
-        <ExampleGoogleChart />
+        <GoogleChart />
       </div>
     )
   }
