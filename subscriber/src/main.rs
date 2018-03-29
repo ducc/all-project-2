@@ -73,7 +73,7 @@ fn try_main() -> Result<(), Error> {
 
     // start http server
 
-    let http_addr = env::var("HTTP_ADDRESS")?.parse().unwrap();
+    let http_addr = env::var("API_ADDRESS")?.parse().unwrap();
 
     let mut core = Core::new()?;
     let handle = core.handle();
